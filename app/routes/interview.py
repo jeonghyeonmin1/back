@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, url_for
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Interview
+
 
 # 테스트용 인터뷰 Q,A 생성 함수
 # from app.services.test_question import generate_question
@@ -128,6 +129,38 @@ def next_question():
 
 
 
+# @bp.route('/api/analysis/info', methods=['GET'])
+# @jwt_required()
+# def get_analysis():
+#     user_id = get_jwt_identity()
+    
+#     summary = analysisByLLM(user_id)
+    
+#     interviews = Interview.query.filter_by(user_id=user_id).all()
+#     if not interviews:
+#         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found'}), 404
+    
+#     interview_list = []
+#     for itv in interviews:
+#         interview_list.append({
+#             'question':        itv.question,
+#             'useranswer':      itv.useranswer,
+#             'LLM_gen_answer':  itv.LLM_gen_answer,
+#             'analysis':        itv.analysis,
+#             'score':           itv.score
+#         })
+    
+#     data = {
+#         "InterviewList": interview_list,
+#         "summary": summary,
+#         # "summary": "API success Data : 지원자는 전반적으로 명확한 어조와 침착한 태도를 유지하며 좋은 인상을 주었습니다. 특히 협업에 있어 논리적인 문제 해결 접근을 보였고, 기술 스택에 대한 이해도도 기본 이상이었습니다. 다만 전반적으로 '구체성'이 부족해 실무 능력을 강조하기에는 설득력이 다소 약했습니다. 이후에는 경험 중심의 답변 구성과 수치·성과 중심의 표현 연습이 필요합니다.",
+#         "video": "1_4_interview_video_1754634176808.webm"
+#     }   
+    
+#     print("[Analysis Info]", data)
+#     # return jsonify({'result': 'ok', 'data': {'interviews': sampleData}})
+#     return jsonify({'result': 'ok', 'data': data})
+
 @bp.route('/api/analysis/info', methods=['GET'])
 @jwt_required()
 def get_analysis():
@@ -135,25 +168,33 @@ def get_analysis():
     
     summary = analysisByLLM(user_id)
     
-    interviews = Interview.query.filter_by(user_id=user_id).all()
+    # interviews = Interview.query.filter_by(user_id=user_id).all()
+    interviews = Interview.query.filter_by(user_id=user_id).order_by(Interview.id.desc()).all()
     if not interviews:
         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found'}), 404
     
     interview_list = []
     for itv in interviews:
+        video_url = None
+        if itv.video:
+            video_filename = os.path.basename(itv.video)
+            video_url = url_for('static', filename=f'videos/{video_filename}', _external=True)
+            
+        
         interview_list.append({
             'question':        itv.question,
             'useranswer':      itv.useranswer,
             'LLM_gen_answer':  itv.LLM_gen_answer,
             'analysis':        itv.analysis,
-            'score':           itv.score
+            'score':           itv.score,
+            'video':            video_url
         })
     
     data = {
         "InterviewList": interview_list,
         "summary": summary,
         # "summary": "API success Data : 지원자는 전반적으로 명확한 어조와 침착한 태도를 유지하며 좋은 인상을 주었습니다. 특히 협업에 있어 논리적인 문제 해결 접근을 보였고, 기술 스택에 대한 이해도도 기본 이상이었습니다. 다만 전반적으로 '구체성'이 부족해 실무 능력을 강조하기에는 설득력이 다소 약했습니다. 이후에는 경험 중심의 답변 구성과 수치·성과 중심의 표현 연습이 필요합니다.",
-        "video": "1_4_interview_video_1754634176808.webm"
+        # "video": "1_4_interview_video_1754634176808.webm"
     }   
     
     print("[Analysis Info]", data)
