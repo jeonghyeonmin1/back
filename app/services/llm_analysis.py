@@ -19,7 +19,7 @@ def analysisByLLM(user_id):
     """
     # 1) OpenAI 클라이언트 초기화
     client = OpenAI(
-        base_url="https://api.aimlapi.com/v1",
+        base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 
@@ -55,7 +55,7 @@ def analysisByLLM(user_id):
 
     # 4) Chat Completion 호출
     response = client.chat.completions.create(
-        model="Qwen/Qwen3-235B-A22B-fp8-tput",
+        model="qwen-turbo",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": "전체 인터뷰 분석해주세요."}

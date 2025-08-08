@@ -47,29 +47,86 @@ def start_interview():
     return jsonify({'result': 'ok', 'data': {'questionList': questionList}})
 
 # Next Question & request Analysis API
+# @bp.route('/api/interview/answer', methods=['POST'])
+# @jwt_required()
+# def next_question():
+#     data = request.get_json()
+#     if not data or 'question' not in data or 'useranswer' not in data or 'video' not in data or 'type' not in data:
+#         print("[Error] Invalid input data:", data)
+#         return jsonify({'result': 'fail', 'code': '400', 'message': 'Invalid input'}), 400
+#     user_id = get_jwt_identity()
+    
+#     interview = Interview.query.filter_by(user_id=user_id, question=data['question']).first()
+    
+#     if not interview:
+#         return jsonify({'result': 'fail', 'code': '404', 'message': 'Interview not found'}), 404
+#     interview.useranswer = data['useranswer']
+#     interview.video = data['video']
+#     interview.type = data['type']
+    
+#     # analysis = analysisByLLM(interview.useranswer)
+#     # interview.LLM_gen_answer = analysis["LLM_gen_answer"]
+#     # interview.analysis = analysis["analysis"]
+    
+#     db.session.commit()
+#     return jsonify({'result': 'ok', 'data': {'message': 'ok'}})
+
+# /api/interview/answer 엔드포인트 수정본
+import os
+from werkzeug.utils import secure_filename
+
+# ... (Blueprint, db 등 다른 import 구문) ...
+
 @bp.route('/api/interview/answer', methods=['POST'])
 @jwt_required()
 def next_question():
-    data = request.get_json()
-    if not data or 'question' not in data or 'useranswer' not in data or 'video' not in data or 'type' not in data:
-        print("[Error] Invalid input data:", data)
-        return jsonify({'result': 'fail', 'code': '400', 'message': 'Invalid input'}), 400
+    # 1. 폼 데이터와 파일 데이터가 제대로 왔는지 확인
+    if 'question' not in request.form or 'answer' not in request.form or 'type' not in request.form:
+        print("[Error] Invalid form data:", request.form)
+        return jsonify({'result': 'fail', 'code': '400', 'message': 'Invalid form data'}), 400
+
     user_id = get_jwt_identity()
     
-    interview = Interview.query.filter_by(user_id=user_id, question=data['question']).first()
+    # 2. request.get_json() 대신 request.form에서 텍스트 데이터 추출
+    question_text = request.form.get('question')
+    user_answer_text = request.form.get('answer') # 클라이언트에서 'answer' 키로 보내므로 'answer'로 받음
+    interview_type = request.form.get('type')
+
+    interview = Interview.query.filter_by(user_id=user_id, question=question_text).first()
     
     if not interview:
         return jsonify({'result': 'fail', 'code': '404', 'message': 'Interview not found'}), 404
-    interview.useranswer = data['useranswer']
-    interview.video = data['video']
-    interview.type = data['type']
+
+    # 3. 데이터베이스에 텍스트 정보 업데이트
+    interview.useranswer = user_answer_text
+    interview.type = interview_type
     
-    # analysis = analysisByLLM(interview.useranswer)
-    # interview.LLM_gen_answer = analysis["LLM_gen_answer"]
-    # interview.analysis = analysis["analysis"]
-    
+    # 4. request.files에서 비디오 파일 추출 및 저장
+    if 'video' in request.files:
+        video_file = request.files['video']
+        if video_file.filename != '':
+            # 파일 이름을 안전하게 만들고, 저장 경로를 설정 (예: static/videos/)
+            # "user_id_타임스탬프.webm" 와 같은 형식으로 고유한 파일명 생성 추천
+            filename = secure_filename(f"{user_id}_{interview.id}_{video_file.filename}")
+            save_path = os.path.join('app/static/videos', filename) # 저장할 폴더 경로
+            
+            # 폴더가 없으면 생성
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            
+            video_file.save(save_path)
+            
+            # DB에는 파일의 경로 또는 파일명을 저장
+            interview.video = save_path 
+
     db.session.commit()
     return jsonify({'result': 'ok', 'data': {'message': 'ok'}})
+
+
+
+
+
+
+
 
 @bp.route('/api/analysis/info', methods=['GET'])
 @jwt_required()
@@ -96,7 +153,7 @@ def get_analysis():
         "InterviewList": interview_list,
         "summary": summary,
         # "summary": "API success Data : 지원자는 전반적으로 명확한 어조와 침착한 태도를 유지하며 좋은 인상을 주었습니다. 특히 협업에 있어 논리적인 문제 해결 접근을 보였고, 기술 스택에 대한 이해도도 기본 이상이었습니다. 다만 전반적으로 '구체성'이 부족해 실무 능력을 강조하기에는 설득력이 다소 약했습니다. 이후에는 경험 중심의 답변 구성과 수치·성과 중심의 표현 연습이 필요합니다.",
-        "video": "interview_20250728_user1234.mp4"
+        "video": "1_4_interview_video_1754634176808.webm"
     }   
     
     print("[Analysis Info]", data)

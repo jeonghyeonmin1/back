@@ -5,13 +5,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def generate_question():
+    print(os.getenv("OPENAI_API_KEY"))
     client = OpenAI(
-        base_url="https://api.aimlapi.com/v1",
+    ## base_url="https://api.aimlapi.com/v1",
+        base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 
     response = client.chat.completions.create(
-        model="Qwen/Qwen3-235B-A22B-fp8-tput",
+        # model="Qwen/Qwen3-235B-A22B-fp8-tput",
+        model="qwen-turbo",
         messages=[
             {
                 "role": "system",
