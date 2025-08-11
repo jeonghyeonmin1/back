@@ -242,7 +242,11 @@ def get_history():
         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found'}), 404
     
     interview_list = []
+    video_url = None
     for itv in interviews:
+        if itv.video:
+            video_filename = os.path.basename(itv.video)
+            video_url = url_for('static', filename=f'videos/{video_filename}', _external=True)
         interview_list.append({
             'question':        itv.question,
             'useranswer':      itv.useranswer,
@@ -251,7 +255,8 @@ def get_history():
             'score':           itv.score,
             'session_id':      itv.session_id,
             'summary':        itv.summary,
-            'question_order':  getattr(itv, 'question_order', 0)
+            'question_order':  getattr(itv, 'question_order', 0),
+            'video':            video_url
         })
     
     # summary = "면접결과 summary"
@@ -259,7 +264,7 @@ def get_history():
         "InterviewList": interview_list,
         "summary": itv.summary,
         "session_id": session_id,
-        "video": interviews[0].video if interviews and interviews[0].video else "interview_20250728_user1234.mp4"
+        # "video": interviews[0].video if interviews and interviews[0].video else "interview_20250728_user1234.mp4"
     }   
     
     print("[Interview Info]", data)
@@ -271,13 +276,14 @@ def get_history():
 def get_sessions():
     user_id = get_jwt_identity()
     
-    # 세션별로 그룹화하여 조회
+    # 세션별로 그룹화하여 조회 (최신 순으로 정렬)
     sessions = db.session.query(
         Interview.session_id,
         db.func.min(Interview.id).label('first_interview_id'),
         db.func.count(Interview.id).label('question_count'),
-        db.func.max(Interview.id).label('last_interview_id')
-    ).filter_by(user_id=user_id).group_by(Interview.session_id).all()
+        db.func.max(Interview.id).label('last_interview_id'),
+        db.func.min(Interview.timestamp).label('created_at')
+    ).filter_by(user_id=user_id).group_by(Interview.session_id).order_by(db.func.min(Interview.timestamp).desc()).all()
     
     session_list = []
     for session in sessions:
@@ -306,7 +312,7 @@ def get_sessions():
         session_list.append({
             'session_id': session.session_id,
             'question_count': session.question_count,
-            'created_at': first_interview.timestamp if first_interview else None,
+            'created_at': session.created_at,  # 쿼리에서 직접 가져온 created_at 사용
             'type': first_interview.type if first_interview else 'Unknown',
             'interviews': interview_list  # 모든 질문, 답변, 분석 정보 포함
         })
