@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, url_for
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Interview
@@ -116,6 +116,55 @@ def next_question():
     db.session.commit()
     return jsonify({'result': 'ok', 'data': {'message': 'ok'}})
 
+# @bp.route('/api/analysis/info', methods=['GET'])
+# @jwt_required()
+# def get_analysis():
+#     user_id = get_jwt_identity()
+    
+#     # URL 파라미터에서 session_id 가져오기
+#     session_id = request.args.get('session_id')
+    
+#     if session_id:
+#         # 특정 세션의 인터뷰만 조회
+#         interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
+#         print(f"[Analysis] Analyzing specific session: {session_id}")
+#     else:
+#         # session_id가 없으면 가장 최근 세션 분석
+#         latest_session = db.session.query(Interview.session_id).filter_by(user_id=user_id).order_by(Interview.id.desc()).first()
+#         if latest_session:
+#             session_id = latest_session.session_id
+#             interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
+#             print(f"[Analysis] Analyzing latest session: {session_id}")
+#         else:
+#             interviews = []
+    
+#     if not interviews:
+#         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found for this session'}), 404
+    
+#     # 해당 세션의 인터뷰 분석
+#     summary = analysisByLLM(user_id, session_id)
+    
+#     interview_list = []
+#     for itv in interviews:
+#         interview_list.append({
+#             'question':        itv.question,
+#             'useranswer':      itv.useranswer,
+#             'LLM_gen_answer':  itv.LLM_gen_answer,
+#             'analysis':        itv.analysis,
+#             'score':           itv.score,
+#             'question_order':  itv.question_order
+#         })
+    
+#     data = {
+#         "InterviewList": interview_list,
+#         "summary": summary,
+#         "session_id": session_id,
+#         "video": interviews[0].video if interviews and interviews[0].video else None
+#     }   
+    
+#     print(f"[Analysis Info] Session {session_id}:", data)
+#     return jsonify({'result': 'ok', 'data': data})
+
 @bp.route('/api/analysis/info', methods=['GET'])
 @jwt_required()
 def get_analysis():
@@ -145,21 +194,28 @@ def get_analysis():
     summary = analysisByLLM(user_id, session_id)
     
     interview_list = []
+    video_url = None
     for itv in interviews:
+        if itv.video:
+            video_filename = os.path.basename(itv.video)
+            video_url = url_for('static', filename=f'videos/{video_filename}', _external=True)
+            
         interview_list.append({
             'question':        itv.question,
             'useranswer':      itv.useranswer,
             'LLM_gen_answer':  itv.LLM_gen_answer,
             'analysis':        itv.analysis,
             'score':           itv.score,
-            'question_order':  itv.question_order
+            'question_order':  itv.question_order,
+            'video':            video_url
         })
-    
+        
+            
     data = {
         "InterviewList": interview_list,
         "summary": summary,
         "session_id": session_id,
-        "video": interviews[0].video if interviews and interviews[0].video else None
+        # "video": interviews[0].video if interviews and interviews[0].video else None
     }   
     
     print(f"[Analysis Info] Session {session_id}:", data)
