@@ -28,30 +28,24 @@ def get_interview_question():
 @bp.route('/api/interview/start', methods=['GET'])
 @jwt_required()
 def start_interview():
-    '''
-    generate a new interview question using the LLM service
-    using Qwen or other LLMs to generate a question
-    '''
     print("[Interview Start] Generating question...")
     user_id = get_jwt_identity()
     print("user_id : ", user_id)
     
-    # 새로운 인터뷰 세션 ID 생성
     session_id = str(uuid.uuid4())
     print(f"[New Session] Session ID: {session_id}")
     
-    questionList = generate_question() # <- QustionList should contain keys like 'question', 'type'
+    questionList = generate_question()
     print(f"[Question Count] Generated {len(questionList)} questions")
     
-    # questionList의 모든 질문들을 같은 session_id로 저장
     for i, q in enumerate(questionList):
         interview = Interview(
             user_id=user_id,
             question=q['question'],
             LLM_gen_answer=q['answer'],
             type=q['type'],
-            session_id=session_id,  # 세션 ID 추가
-            question_order=i  # 질문 순서 추가
+            session_id=session_id,
+            question_order=i
         )
         db.session.add(interview)
     
@@ -64,24 +58,21 @@ def start_interview():
         'result': 'ok', 
         'data': {
             'questionList': questionList,
-            'session_id': session_id  # 프론트엔드에 세션 ID 전달
+            'session_id': session_id
         }
     })
 
+# Interview Answer API
 @bp.route('/api/interview/answer', methods=['POST'])
 @jwt_required()
 def next_question():
-    # data = request.get_json()
-    # if not data or 'question' not in data or 'useranswer' not in data or 'video' not in data or 'type' not in data:
-    #     print("[Error] Invalid input data:", data)
-    #     return jsonify({'result': 'fail', 'code': '400', 'message': 'Invalid input'}), 400
     if 'question' not in request.form or 'useranswer' not in request.form or 'type' not in request.form:
         print("[Error] Invalid form data:", request.form)
         return jsonify({'result': 'fail', 'code': '400', 'message': 'Invalid form data'}), 400
        
     user_id = get_jwt_identity()
     question_text = request.form.get('question')
-    user_answer_text = request.form.get('useranswer') # 클라이언트에서 'answer' 키로 보내므로 'answer'로 받음
+    user_answer_text = request.form.get('useranswer')
     interview_type = request.form.get('type')
     session_id = request.form.get('session_id')
     
@@ -97,17 +88,10 @@ def next_question():
     if 'video' in request.files:
         video_file = request.files['video']
         if video_file.filename != '':
-            # 파일 이름을 안전하게 만들고, 저장 경로를 설정 (예: static/videos/)
-            # "user_id_타임스탬프.webm" 와 같은 형식으로 고유한 파일명 생성 추천
             filename = secure_filename(f"{user_id}_{interview.id}_{video_file.filename}")
-            save_path = os.path.join('app/static/videos', filename) # 저장할 폴더 경로
-            
-            # 폴더가 없으면 생성
+            save_path = os.path.join('app/static/videos', filename)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            
             video_file.save(save_path)
-            
-            # DB에는 파일의 경로 또는 파일명을 저장
             interview.video = save_path
             
     interview.useranswer = user_answer_text
@@ -116,69 +100,18 @@ def next_question():
     db.session.commit()
     return jsonify({'result': 'ok', 'data': {'message': 'ok'}})
 
-# @bp.route('/api/analysis/info', methods=['GET'])
-# @jwt_required()
-# def get_analysis():
-#     user_id = get_jwt_identity()
-    
-#     # URL 파라미터에서 session_id 가져오기
-#     session_id = request.args.get('session_id')
-    
-#     if session_id:
-#         # 특정 세션의 인터뷰만 조회
-#         interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
-#         print(f"[Analysis] Analyzing specific session: {session_id}")
-#     else:
-#         # session_id가 없으면 가장 최근 세션 분석
-#         latest_session = db.session.query(Interview.session_id).filter_by(user_id=user_id).order_by(Interview.id.desc()).first()
-#         if latest_session:
-#             session_id = latest_session.session_id
-#             interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
-#             print(f"[Analysis] Analyzing latest session: {session_id}")
-#         else:
-#             interviews = []
-    
-#     if not interviews:
-#         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found for this session'}), 404
-    
-#     # 해당 세션의 인터뷰 분석
-#     summary = analysisByLLM(user_id, session_id)
-    
-#     interview_list = []
-#     for itv in interviews:
-#         interview_list.append({
-#             'question':        itv.question,
-#             'useranswer':      itv.useranswer,
-#             'LLM_gen_answer':  itv.LLM_gen_answer,
-#             'analysis':        itv.analysis,
-#             'score':           itv.score,
-#             'question_order':  itv.question_order
-#         })
-    
-#     data = {
-#         "InterviewList": interview_list,
-#         "summary": summary,
-#         "session_id": session_id,
-#         "video": interviews[0].video if interviews and interviews[0].video else None
-#     }   
-    
-#     print(f"[Analysis Info] Session {session_id}:", data)
-#     return jsonify({'result': 'ok', 'data': data})
-
+# Interview Analysis API
 @bp.route('/api/analysis/info', methods=['GET'])
 @jwt_required()
 def get_analysis():
     user_id = get_jwt_identity()
-    
-    # URL 파라미터에서 session_id 가져오기
+
     session_id = request.args.get('session_id')
     
     if session_id:
-        # 특정 세션의 인터뷰만 조회
         interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
         print(f"[Analysis] Analyzing specific session: {session_id}")
     else:
-        # session_id가 없으면 가장 최근 세션 분석
         latest_session = db.session.query(Interview.session_id).filter_by(user_id=user_id).order_by(Interview.id.desc()).first()
         if latest_session:
             session_id = latest_session.session_id
@@ -190,7 +123,6 @@ def get_analysis():
     if not interviews:
         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found for this session'}), 404
     
-    # 해당 세션의 인터뷰 분석
     summary = analysisByLLM(user_id, session_id)
     
     interview_list = []
@@ -209,32 +141,27 @@ def get_analysis():
             'question_order':  itv.question_order,
             'video':            video_url
         })
-        
-            
+              
     data = {
         "InterviewList": interview_list,
         "summary": summary,
         "session_id": session_id,
-        # "video": interviews[0].video if interviews and interviews[0].video else None
     }   
     
     print(f"[Analysis Info] Session {session_id}:", data)
     return jsonify({'result': 'ok', 'data': data})
 
+# Interview Info API
 @bp.route('/api/interview/info', methods=['GET'])
 @jwt_required()
 def get_history():
     user_id = get_jwt_identity()
-    
-    # URL 파라미터에서 session_id 가져오기
     session_id = request.args.get('session_id')
     
     if session_id:
-        # 특정 세션의 인터뷰만 조회
         print(f"[Interview Info] Fetching interviews for session: {session_id}")
         interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
     else:
-        # 모든 인터뷰 조회 (기존 동작 유지)
         print("[Interview Info] No session_id provided, fetching all interviews for user.")
         interviews = Interview.query.filter_by(user_id=user_id).all()
     
@@ -259,24 +186,21 @@ def get_history():
             'video':            video_url
         })
     
-    # summary = "면접결과 summary"
     data = {
         "InterviewList": interview_list,
         "summary": itv.summary,
         "session_id": session_id,
-        # "video": interviews[0].video if interviews and interviews[0].video else "interview_20250728_user1234.mp4"
     }   
     
     print("[Interview Info]", data)
     return jsonify({'result': 'ok', 'data': data})
 
-# 사용자의 모든 인터뷰 세션 목록 조회
+# Interview History API
 @bp.route('/api/interview/sessions', methods=['GET'])
 @jwt_required()
 def get_sessions():
     user_id = get_jwt_identity()
     
-    # 세션별로 그룹화하여 조회 (최신 순으로 정렬)
     sessions = db.session.query(
         Interview.session_id,
         db.func.min(Interview.id).label('first_interview_id'),
@@ -287,13 +211,11 @@ def get_sessions():
     
     session_list = []
     for session in sessions:
-        # 해당 세션의 모든 인터뷰 데이터 가져오기
         interviews = Interview.query.filter_by(
             user_id=user_id, 
             session_id=session.session_id
         ).order_by(Interview.question_order).all()
         
-        # 각 세션의 인터뷰 리스트 구성
         interview_list = []
         for itv in interviews:
             interview_list.append({
@@ -306,15 +228,14 @@ def get_sessions():
                 'summary': itv.summary
             })
         
-        # 첫 번째 인터뷰 정보 가져오기
         first_interview = Interview.query.get(session.first_interview_id)
         
         session_list.append({
             'session_id': session.session_id,
             'question_count': session.question_count,
-            'created_at': session.created_at,  # 쿼리에서 직접 가져온 created_at 사용
+            'created_at': session.created_at,
             'type': first_interview.type if first_interview else 'Unknown',
-            'interviews': interview_list  # 모든 질문, 답변, 분석 정보 포함
+            'interviews': interview_list
         })
     
     return jsonify({'result': 'ok', 'data': {'sessions': session_list}})
@@ -389,3 +310,52 @@ def get_scores():
 #     print("[Analysis Info]", data)
 
 #     return jsonify({'result': 'ok', 'data': {'interviews': data}})
+
+# @bp.route('/api/analysis/info', methods=['GET'])
+# @jwt_required()
+# def get_analysis():
+#     user_id = get_jwt_identity()
+    
+#     # URL 파라미터에서 session_id 가져오기
+#     session_id = request.args.get('session_id')
+    
+#     if session_id:
+#         # 특정 세션의 인터뷰만 조회
+#         interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
+#         print(f"[Analysis] Analyzing specific session: {session_id}")
+#     else:
+#         # session_id가 없으면 가장 최근 세션 분석
+#         latest_session = db.session.query(Interview.session_id).filter_by(user_id=user_id).order_by(Interview.id.desc()).first()
+#         if latest_session:
+#             session_id = latest_session.session_id
+#             interviews = Interview.query.filter_by(user_id=user_id, session_id=session_id).order_by(Interview.question_order).all()
+#             print(f"[Analysis] Analyzing latest session: {session_id}")
+#         else:
+#             interviews = []
+    
+#     if not interviews:
+#         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found for this session'}), 404
+    
+#     # 해당 세션의 인터뷰 분석
+#     summary = analysisByLLM(user_id, session_id)
+    
+#     interview_list = []
+#     for itv in interviews:
+#         interview_list.append({
+#             'question':        itv.question,
+#             'useranswer':      itv.useranswer,
+#             'LLM_gen_answer':  itv.LLM_gen_answer,
+#             'analysis':        itv.analysis,
+#             'score':           itv.score,
+#             'question_order':  itv.question_order
+#         })
+    
+#     data = {
+#         "InterviewList": interview_list,
+#         "summary": summary,
+#         "session_id": session_id,
+#         "video": interviews[0].video if interviews and interviews[0].video else None
+#     }   
+    
+#     print(f"[Analysis Info] Session {session_id}:", data)
+#     return jsonify({'result': 'ok', 'data': data})

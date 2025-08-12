@@ -7,6 +7,7 @@ from flask import current_app
 
 bp = Blueprint('auth', __name__)
 
+# User Join API
 @bp.route('/api/auth/join', methods=['POST'])
 def join():
     data = request.get_json()
@@ -20,13 +21,12 @@ def join():
     user = User(username=data['username'], email=data['email'], password=data['password'])
     db.session.add(user)
     db.session.commit()
-
-    # token = create_access_token(identity=user.id)
+    
     token = create_access_token(identity=str(user.id))
     print("[User Joined]", user.username, user.email, token)
     return jsonify({'result': 'ok', 'data': {'token': token, 'username': user.username, 'email': user.email}})
 
-
+# Login API
 @bp.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -37,10 +37,10 @@ def login():
     if not user:
         return jsonify({'result': 'fail', 'code': '401', 'message': 'Invalid credentials'}), 401
 
-    # token = create_access_token(identity=user.id)
     token = create_access_token(identity=str(user.id))
     return jsonify({'result': 'ok', 'data': {'token': token, 'username': user.username, 'email': user.email}})
 
+# Email verify API
 @bp.route('/api/auth/verify', methods=['POST'])
 def verify():
     data = request.get_json()
@@ -52,6 +52,7 @@ def verify():
     exists = User.query.filter_by(email=email).first() is not None
     return jsonify({'result': 'ok', 'data': {'exists': exists}})
 
+# Kakao Login API
 @bp.route('/kakao/login', methods=['GET', 'POST'])
 def kakao_login():
     kakao_oauth_url = (
@@ -61,6 +62,7 @@ def kakao_login():
     )
     return redirect(kakao_oauth_url)
 
+# Kakao Callback API
 @bp.route('/kakao/callback')    
 def kakao_callback():
     try:
@@ -77,7 +79,6 @@ def kakao_callback():
 
         token_res = requests.post('https://kauth.kakao.com/oauth/token', data=token_data)
         token_json = token_res.json()
-        # print("[🔑 token response]", token_json)
 
         if 'access_token' not in token_json:
             return jsonify({'result': 'fail', 'message': 'Kakao token 발급 실패', 'detail': token_json}), 400
@@ -86,7 +87,6 @@ def kakao_callback():
         headers = {'Authorization': f'Bearer {access_token}'}
         user_info_res = requests.get('https://kapi.kakao.com/v2/user/me', headers=headers)
         user_info = user_info_res.json()
-        # print("[🔍 user_info response]", user_info)
 
         if 'id' not in user_info:
             return jsonify({'result': 'fail', 'message': 'Kakao 사용자 정보 조회 실패', 'detail': user_info}), 400
@@ -102,11 +102,9 @@ def kakao_callback():
             db.session.add(user)
             db.session.commit()
             
-        # token = create_access_token(identity=user.id)
         token = create_access_token(identity=str(user.id))
         print("[Kakao 로그인 성공]", user.username, user.email)
         
-        # 메인 페이지로 바로 리다이렉트하면서 토큰과 사용자 정보 전달
         frontend_url = f"http://localhost:3000/?kakao_login=success&token={token}&username={user.username}&email={user.email}"
         return redirect(frontend_url)
 

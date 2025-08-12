@@ -53,27 +53,22 @@ def generate_question():
         questions = []
         answers = []
         
-        # 3개의 질문과 답변을 파싱
         for line in lines:
-            # 면접 질문 1, 2, 3 패턴 매칭
             if line.startswith("면접 질문"):
                 question = line.split(":", 1)[1].strip() if ":" in line else ""
                 questions.append(question)
-            # 생성한 답 1, 2, 3 패턴 매칭
             elif line.startswith("생성한 답"):
                 answer = line.split(":", 1)[1].strip() if ":" in line else ""
                 answers.append(answer)
 
-        # 질문과 답변이 3개씩 있는지 확인하고 questionList 생성
         questionList = []
-        for i in range(min(len(questions), len(answers), 3)):  # 최대 3개까지만
+        for i in range(min(len(questions), len(answers), 3)):
             questionList.append({
                 "question": questions[i],
                 "answer": answers[i],
                 "type": "간호사"
             })
         
-        # 만약 3개 미만이면 기본값으로 채우기
         while len(questionList) < 3:
             questionList.append({
                 "question": f"질문 {len(questionList) + 1} 생성 실패",

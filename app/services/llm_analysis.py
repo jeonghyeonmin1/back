@@ -11,21 +11,13 @@ load_dotenv()
 
 def analysisByLLM(user_id, session_id=None):
     print(f"[Analysis Start] analyzing user_id: {user_id}, session_id: {session_id}")
-    """
-    1) 해당 유저의 특정 세션 또는 모든 Interview 레코드 조회
-    2) LLM에 한번에 보내 분석
-    3) 질문별 analysis, score를 각각의 Interview 객체에 저장
-    4) 전체 summary 반환
-    """
-    # 1) OpenAI 클라이언트 초기화
+
     client = OpenAI(
         # base_url="https://api.aimlapi.com/v1",
         # api_key=os.getenv("OPENAI_API_KEY"),
         base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         api_key=os.getenv("OPENAI_API_KEY"),
     )
-
-    # 2) 인터뷰 불러오기 (세션별 또는 전체)
     if session_id:
         interviews = (Interview.query
                            .filter_by(user_id=user_id, session_id=session_id)
@@ -42,7 +34,6 @@ def analysisByLLM(user_id, session_id=None):
     if not interviews:
         return "분석할 인터뷰 데이터가 없습니다."
 
-    # 3) 프롬프트 생성 (질문/유저답변/LLM답변)
     prompt_parts = []
     for idx, itv in enumerate(interviews, start=1):
         prompt_parts.append(
@@ -65,7 +56,6 @@ def analysisByLLM(user_id, session_id=None):
         "**<think> 같은 내부 지시는 절대 출력하지 말고**, 전부 한국어로 작성해."
     )
 
-    # 4) Chat Completion 호출
     response = client.chat.completions.create(
         # model="Qwen/Qwen3-235B-A22B-fp8-tput",
         model="qwen-turbo",
@@ -81,15 +71,10 @@ def analysisByLLM(user_id, session_id=None):
     )
     
     message = response.choices[0].message.content
-    # <think> 태그 제거
     if "</think>" in message:
         message = message.split("</think>", 1)[1]
-    # 줄 단위로 분리하고 공백 줄 제거
     print("[LLM Response]", message)
     
-    # 4) 정규식으로 {analysis} 와 {score} 값 모두 뽑아내기
-    #    (?s) DOTALL: 줄바꿈 포함 매칭
-    #    두 가지 패턴 모두 지원: {analysis} : 내용 또는 analysis : 내용
     analysis_pattern = re.compile(r"(?:\{analysis\}|analysis)\s*:\s*(.+?)(?=(?:\{score\}|score)\s*:|$)", re.IGNORECASE | re.DOTALL)
     score_pattern    = re.compile(r"(?:\{score\}|score)\s*:\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
     summary_pattern  = re.compile(r"(?:\{summary\}|summary)\s*:\s*(.+?)(?=\n\n|\Z)", re.IGNORECASE | re.DOTALL)
@@ -104,7 +89,6 @@ def analysisByLLM(user_id, session_id=None):
     print(f"[Scores] {scores}")
     print(f"[Summary] {summary}")
 
-    # 5) DB에 저장 - 길이 맞춤을 위한 안전 처리
     min_length = min(len(interviews), len(analyses), len(scores))
     print(f"[DB Save] Processing {min_length} interviews")
     
@@ -120,22 +104,12 @@ def analysisByLLM(user_id, session_id=None):
             itv.score = 0.0
             print(f"[Warning] Invalid score format for interview {i}: {sc}")
     
-    # 분석되지 않은 인터뷰들에 대한 기본값 설정
     for i in range(min_length, len(interviews)):
         interviews[i].analysis = "분석 결과 없음 (기본값)"
         interviews[i].score = 0.0
 
-    # summary 필드가 모델에 있다면 첫 레코드에 저장
     if hasattr(interviews[0], 'summary'):
         interviews[0].summary = summary
 
     db.session.commit()
     return summary
-
-# def score_answer(answer):
-#     return round(random.uniform(60, 100), 2)
-
-# def test_analysisByLLM(answer):
-#     data = {"LLM_gen_answer": "This is a generated answer based on the user's input.",
-#             "analysis": "The answer is well-structured and addresses the question effectively."}
-#     return data

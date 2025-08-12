@@ -18,10 +18,4 @@ def get_user_info():
     if not user:
         return jsonify({'result': 'fail', 'code': '404', 'message': 'User not found'}), 404
 
-    return jsonify({
-        'result': 'ok',
-        'data': {
-            'username': user.username,
-            'email': user.email
-        }
-    })
+    return jsonify({'result': 'ok', 'data': {'username': user.username,'email': user.email}})
