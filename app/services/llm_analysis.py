@@ -98,6 +98,7 @@ def analysisByLLM(user_id, session_id=None):
         sc = scores[i] if i < len(scores) else "0"
         
         itv.analysis = anal.strip()
+        itv.summary = summary.strip()   
         try:
             itv.score = float(sc)
         except ValueError:
