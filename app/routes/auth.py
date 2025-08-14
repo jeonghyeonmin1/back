@@ -105,7 +105,8 @@ def kakao_callback():
         token = create_access_token(identity=str(user.id))
         print("[Kakao 로그인 성공]", user.username, user.email)
         
-        frontend_url = f"http://localhost:3000/?kakao_login=success&token={token}&username={user.username}&email={user.email}"
+        # frontend_url = f"http://localhost:3000/?kakao_login=success&token={token}&username={user.username}&email={user.email}"
+        frontend_url = f"{current_app.config['FRONTEND_URL']}/?kakao_login=success&token={token}&username={user.username}&email={user.email}"
         return redirect(frontend_url)
 
     except Exception as e:

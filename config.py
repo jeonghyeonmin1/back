@@ -16,3 +16,4 @@ class Config:
     KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID')
     KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
     KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
+    FRONTEND_URL = os.getenv('FRONTEND_URL')
