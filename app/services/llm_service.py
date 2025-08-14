@@ -135,15 +135,6 @@ prompt_list = {
     "etc": general_message
 }
 def generate_question(job="간호사"):
-    """
-    주어진 직업에 맞는 면접 질문을 생성합니다.
-    
-    Args:
-        job (str): 직업 종류 ("간호사", "개발자", "의사", "기획자", "기타")
-    
-    Returns:
-        list: 질문과 답변이 포함된 딕셔너리 리스트
-    """
     client = OpenAI(
         # base_url="https://api.aimlapi.com/v1",
         # api_key=os.getenv("OPENAI_API_KEY"),
@@ -151,7 +142,6 @@ def generate_question(job="간호사"):
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 
-    # job에 해당하는 프롬프트 선택, 없으면 기본값 사용
     selected_prompt = prompt_list.get(job, prompt_list["etc"])
     print(f"[Question Generation] Selected job: {job}")
     print(f"[Question Generation] Selected prompt: {selected_prompt}")
@@ -188,14 +178,14 @@ def generate_question(job="간호사"):
             questionList.append({
                 "question": questions[i],
                 "answer": answers[i],
-                "type": job  # 선택된 job으로 설정
+                "type": job
             })
         
         while len(questionList) < 3:
             questionList.append({
                 "question": f"질문 {len(questionList) + 1} 생성 실패",
                 "answer": "답변 생성 실패",
-                "type": job  # 선택된 job으로 설정
+                "type": job
             })
         
     except Exception as e:
@@ -205,7 +195,7 @@ def generate_question(job="간호사"):
             questionList.append({
                 "question": f"Parsing failed - Question {i + 1}",
                 "answer": f"Parsing failed - Answer {i + 1}",
-                "type": job  # 선택된 job으로 설정
+                "type": job
             })
 
     print(f"Parsed Question List: {questionList}")

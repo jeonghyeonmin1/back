@@ -45,7 +45,6 @@ def analysisByLLM(user_id, session_id=None, job="간호사"):
         )
     combined = "\n".join(prompt_parts)
 
-    # Job별 분석 프롬프트 설정
     job_prompts = {
         "nurse": "너는 간호사 면접 준비를 도와주는 AI야.",
         "developer": "너는 개발자 면접 준비를 도와주는 AI야.",
