@@ -9,8 +9,8 @@ from app.models import Interview
 
 load_dotenv()
 
-def analysisByLLM(user_id, session_id=None):
-    print(f"[Analysis Start] analyzing user_id: {user_id}, session_id: {session_id}")
+def analysisByLLM(user_id, session_id=None, job="간호사"):
+    print(f"[Analysis Start] analyzing user_id: {user_id}, session_id: {session_id}, job: {job}")
 
     client = OpenAI(
         # base_url="https://api.aimlapi.com/v1",
@@ -39,14 +39,25 @@ def analysisByLLM(user_id, session_id=None):
         prompt_parts.append(
             f"---\n"
             f"질문 {idx}: {itv.question}\n"
-            # f"사용자 답변: {itv.useranswer}\n"
-            f"사용자 답변: {itv.LLM_gen_answer}\n"
+            f"사용자 답변: {itv.useranswer}\n"
+            # f"사용자 답변: {itv.LLM_gen_answer}\n"
             f"LLM 이전 답변: {itv.LLM_gen_answer}\n"
         )
     combined = "\n".join(prompt_parts)
 
+    # Job별 분석 프롬프트 설정
+    job_prompts = {
+        "nurse": "너는 간호사 면접 준비를 도와주는 AI야.",
+        "developer": "너는 개발자 면접 준비를 도와주는 AI야.",
+        "doctor": "너는 의사 면접 준비를 도와주는 AI야.", 
+        "planner": "너는 기획자 면접 준비를 도와주는 AI야.",
+        "etc": "너는 면접 준비를 도와주는 AI야."
+    }
+    
+    job_prompt = job_prompts.get(job, job_prompts["etc"])
+
     system_prompt = (
-        "너는 간호사 면접 준비를 도와주는 AI야. "
+        f"{job_prompt} "
         "아래는 사용자가 진행한 모든 면접 질문과 답변이야:\n\n"
         f"{combined}\n\n"
         "각 질문별로 다음 형식으로 분석 결과를 출력해줘:\n"

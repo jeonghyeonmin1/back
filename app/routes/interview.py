@@ -21,7 +21,8 @@ bp = Blueprint('interview', __name__)
 @bp.route('/api/interview', methods=['GET'])
 @jwt_required()
 def get_interview_question():
-    question = generate_question()
+    job = request.args.get('job', '간호사')  # URL 파라미터에서 job 가져오기, 기본값은 '간호사'
+    question = generate_question(job)
     return jsonify({'result': 'ok', 'data': {'question': question}})
 
 # Interview Question API
@@ -32,10 +33,14 @@ def start_interview():
     user_id = get_jwt_identity()
     print("user_id : ", user_id)
     
+    # URL 파라미터에서 job 가져오기, 기본값은 '간호사'
+    job = request.args.get('job', '간호사')
+    print(f"[Interview Start] Selected job: {job}")
+    
     session_id = str(uuid.uuid4())
     print(f"[New Session] Session ID: {session_id}")
     
-    questionList = generate_question()
+    questionList = generate_question(job)  # job 파라미터 전달
     print(f"[Question Count] Generated {len(questionList)} questions")
     
     for i, q in enumerate(questionList):
@@ -43,7 +48,7 @@ def start_interview():
             user_id=user_id,
             question=q['question'],
             LLM_gen_answer=q['answer'],
-            type=q['type'],
+            type=job,  # job 정보를 type 필드에 저장
             session_id=session_id,
             question_order=i
         )
@@ -123,7 +128,11 @@ def get_analysis():
     if not interviews:
         return jsonify({'result': 'fail', 'code': '404', 'message': 'No interviews found for this session'}), 404
     
-    summary = analysisByLLM(user_id, session_id)
+    # 세션의 첫 번째 인터뷰에서 job 정보 가져오기
+    job = interviews[0].type if interviews else "간호사"
+    print(f"[Analysis] Job type for session {session_id}: {job}")
+    
+    summary = analysisByLLM(user_id, session_id, job)
     
     interview_list = []
     video_url = None
