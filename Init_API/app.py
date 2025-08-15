@@ -5,7 +5,7 @@ import datetime
 from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
-CORS(app)  # CORS 설정 추가
+CORS(app, "https://echoview-5e8a2.web.app/")  # CORS 설정 추가
 
 user_storage = {}
 
